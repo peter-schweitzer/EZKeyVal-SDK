@@ -90,13 +90,13 @@ class EZKeyValSDK {
 
     return new Proxy(
       {
-        value: null,
+        cache: null,
         get value() {
-          this.value = GET();
-          return this.value;
+          this.cache = GET();
+          return this.cache;
         },
         set value(v) {
-          this.value = v;
+          this.cache = v;
           PUT(v).then(LOG, ERR);
         },
       },
@@ -104,7 +104,7 @@ class EZKeyValSDK {
         async deleteProperty(obj, prop) {
           if (prop !== 'value') return;
           LOG(`delete: ${await DELETE()}`);
-          obj.value = null;
+          obj.cache = null;
         },
       },
     );
