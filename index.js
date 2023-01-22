@@ -4,17 +4,25 @@ const { log: LOG, warn: WRN, error: ERR } = console;
 class EZKeyValSDK {
   /**@type {Object.<string, any>}*/
   #cache = {};
+  /**@type {string}*/
+  #m_host = '';
+  /**@type {string}*/
+  #m_uri = '';
 
   /**
    * @param {string} host
    * @param {string} uri
    * @param {number} syncInterval in ms
    */
-  constructor(host, uri, syncInterval) {
+  constructor(host, uri, syncInterval = 0) {
     if (host === undefined) throw 'NO HOST GIVEN';
     this.#m_host = host;
     this.#m_uri = uri;
-    setInterval(this.#update, syncInterval);
+
+    if (!!syncInterval)
+      setInterval(() => {
+        for (const key in this.#cache) this.#get(key);
+      }, syncInterval);
   }
 
   /**
@@ -72,12 +80,6 @@ class EZKeyValSDK {
       .on('error', (e) => {
         ERR(e);
       });
-  }
-
-  #update() {
-    for (const key in this.#cache) {
-      this.#get(key);
-    }
   }
 
   async init(key) {
