@@ -2,111 +2,116 @@ const https = require('https');
 const { log: LOG, warn: WRN, error: ERR } = console;
 
 class EZKeyValSDK {
+  /**@type {Object.<string, any>}*/
+  #cache = {};
+
   /**
    * @param {string} host
    * @param {string} uri
+   * @param {number} syncInterval in ms
    */
-  constructor(host, uri) {
-    if (host === undefined) throw 'NO HOST given';
-    this.m_host = host;
-    this.m_uri = uri;
+  constructor(host, uri, syncInterval) {
+    if (host === undefined) throw 'NO HOST GIVEN';
+    this.#m_host = host;
+    this.#m_uri = uri;
+    setInterval(this.#update, syncInterval);
   }
 
-  init(key) {
+  /**
+   * @param {string} key
+   * @returns {void}
+   */
+  #get(key) {
+    https
+      .request({ host: this.#m_host, route: `${this.#m_uri}/${key}`, method: 'GET' }, (res) => {
+        let buff = '';
+
+        res.on('data', (d) => {
+          buff += d;
+        });
+
+        res.on('end', () => {
+          try {
+            this.#cache[key] = JSON.parse(buff);
+          } catch (e) {
+            ERR(e);
+          }
+        });
+      })
+      .on('error', (e) => {
+        ERR(e);
+      });
+  }
+
+  /**
+   * @param {any} value null => noop
+   * @returns {void}
+   */
+  #put(value = null) {
+    if (value === null) return void LOG('no valid value specified');
+    const data = JSON.stringify(value);
+
+    const req = https.request(
+      { host: this.#m_host, route: `${this.#m_uri}/${key}`, method: 'PUT', headers: { 'Content-Type': 'application/json', 'Content-Length': data.length } },
+      (res) => {
+        res.on('error', (e) => {
+          ERR(e);
+        });
+      },
+    );
+    req.write(data, ERR);
+    req.end();
+  }
+
+  #del(key) {
+    const options = { host: this.m_host, route: `${this.m_uri}/${key}`, method: 'DELETE' };
+    https
+      .request(options, (res) => {
+        LOG('DELETE response code:', res.statusCode);
+      })
+      .on('error', (e) => {
+        ERR(e);
+      });
+  }
+
+  #update() {
+    for (const key in this.#cache) {
+      this.#get(key);
+    }
+  }
+
+  async init(key) {
     if (key === null) return new Promise.reject('no key specified');
     if (typeof key !== 'string' || !key || key.includes('?')) return new Promise.reject('key is not a valid string');
 
-    /**
-     * @returns {Promise<any>}
-     */
-    function GET() {
-      return new Promise((resolve, reject) => {
-        https
-          .request({ host: this.m_host, route: this.m_uri + key, method: 'GET' }, (res) => {
-            LOG('response code:', res.statusCode);
+    const cache = this.#cache;
+    const put = this.#put;
+    const del = this.#del;
 
-            let buff = '';
+    this.#get(key);
 
-            res.on('data', (d) => {
-              buff += d;
-            });
-
-            res.on('end', () => {
-              try {
-                resolve(JSON.parse(buff));
-              } catch (err) {
-                ERR(err);
-                reject('invalid json-response');
-              }
-            });
-          })
-          .on('error', (err) => {
-            reject(err);
-          });
-      });
-    }
-
-    /**
-     * @param {any} value null => reject (use DELETE)
-     * @returns {Promise<number>}
-     */
-    function PUT(value = null) {
-      if (value === null) return new Promise.reject('no valid value specified');
-      const data = JSON.stringify({ value });
-
-      return new Promise((resolve, reject) => {
-        const req = https.request(
-          { host: this.m_host, route: this.m_uri + key, method: 'PUT', headers: { 'Content-Type': 'application/json', 'Content-Length': data.length } },
-          (res) => {
-            res.on('error', (err) => {
-              reject(err);
-            });
-
-            LOG('response code:', res.statusCode);
-            resolve(res.statusCode);
+    return new Promise.resolve(
+      new Proxy(
+        { key },
+        {
+          async deleteProperty(obj, prop) {
+            if (prop !== 'value') return;
+            delete cache[obj.key];
+            del();
           },
-        );
-        req.write(data);
-        req.end();
-      });
-    }
 
-    /**
-     * @returns {Promise<number>}
-     */
-    function DELETE() {
-      const options = { host: this.m_host, route: this.m_uri + key, method: 'DELETE' };
-      return new Promise((resolve, reject) => {
-        https
-          .request(options, (res) => {
-            LOG('response code:', res.statusCode);
-            resolve(res.statusCode);
-          })
-          .on('error', (err) => {
-            reject(err);
-          });
-      });
-    }
+          get(obj, prop) {
+            if (prop !== 'value') return undefined;
+            return cache[obj.key];
+          },
 
-    return new Proxy(
-      {
-        cache: null,
-        get value() {
-          this.cache = GET();
-          return this.cache;
+          set(obj, prop, v) {
+            if (prop !== 'value') return;
+            cache[obj.key] = v;
+            put(obj.key, v);
+          },
         },
-        set value(v) {
-          this.cache = v;
-          PUT(v).then(LOG, ERR);
-        },
-      },
-      {
-        async deleteProperty(obj, prop) {
-          if (prop !== 'value') return;
-          LOG(`delete: ${await DELETE()}`);
-          obj.cache = null;
-        },
-      },
+      ),
     );
   }
 }
