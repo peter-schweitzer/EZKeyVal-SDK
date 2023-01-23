@@ -121,6 +121,31 @@ class EZKeyValSDK {
 
     return { err: null, proxy };
   }
+
+  /**
+   * @returns {ErrorOr<string[]>}
+   */
+  keys() {
+    https
+      .request({ host: this.#m_host, route: `/keys${this.#m_uri}`, method: 'GET' }, (res) => {
+        let buff = '';
+
+        res.on('data', (d) => {
+          buff += d;
+        });
+
+        res.on('end', () => {
+          try {
+            return { err: null, data: JSON.parse(buff) };
+          } catch (err) {
+            return { err, data: null };
+          }
+        });
+      })
+      .on('error', (err) => {
+        return { err, data: null };
+      });
+  }
 }
 
 module.exports = { EZKeyValSDK };
