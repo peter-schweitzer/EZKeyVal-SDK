@@ -4,6 +4,7 @@ const { log: LOG, warn: WRN, error: ERR } = console;
 class EZKeyValSDK {
   /**@type {Object.<string, any>}*/
   #cache = {};
+
   /**@type {string}*/
   #m_host = '';
   /**@type {string}*/
@@ -82,26 +83,24 @@ class EZKeyValSDK {
       });
   }
 
-  async init(key) {
-    if (key === null) return new Promise.reject('no key specified');
-    if (typeof key !== 'string' || !key || key.includes('?')) return new Promise.reject('key is not a valid string');
+  /**
+   * @param {string} key
+   * @returns {ErrorOrProxy}
+   */
+  init(key) {
+    if (key === null) return { err: 'no key specified', proxy: null };
+    if (typeof key !== 'string' || !key || key.includes('?')) return { err: 'key is not a valid string', proxy: null };
+
+    this.#get(key);
 
     const cache = this.#cache;
     const put = this.#put;
     const del = this.#del;
 
-    this.#get(key);
-
-    return new Promise.resolve(
+    resolve(
       new Proxy(
         { key },
         {
-          async deleteProperty(obj, prop) {
-            if (prop !== 'value') return;
-            delete cache[obj.key];
-            del();
-          },
-
           get(obj, prop) {
             if (prop !== 'value') return undefined;
             return cache[obj.key];
@@ -112,6 +111,12 @@ class EZKeyValSDK {
             cache[obj.key] = v;
             put(obj.key, v);
           },
+
+          deleteProperty(obj, prop) {
+            if (prop !== 'value') return;
+            delete cache[obj.key];
+            del();
+          },
         },
       ),
     );
@@ -119,3 +124,12 @@ class EZKeyValSDK {
 }
 
 module.exports = { EZKeyValSDK };
+
+/**
+ * @typedef {Object} ErrorOrProxy
+ * @property {string?} err
+ * @property {SDKProxy?} proxy
+ *
+ * @typedef {Object} SDKProxy
+ * @property {any} value
+ */
