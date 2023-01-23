@@ -97,29 +97,29 @@ class EZKeyValSDK {
     const put = this.#put;
     const del = this.#del;
 
-    resolve(
-      new Proxy(
-        { key },
-        {
-          get(obj, prop) {
-            if (prop !== 'value') return undefined;
-            return cache[obj.key];
-          },
-
-          set(obj, prop, v) {
-            if (prop !== 'value') return;
-            cache[obj.key] = v;
-            put(obj.key, v);
-          },
-
-          deleteProperty(obj, prop) {
-            if (prop !== 'value') return;
-            delete cache[obj.key];
-            del();
-          },
+    const proxy = new Proxy(
+      { key },
+      {
+        get(obj, prop) {
+          if (prop !== 'value') return undefined;
+          return cache[obj.key];
         },
-      ),
+
+        set(obj, prop, v) {
+          if (prop !== 'value') return;
+          cache[obj.key] = v;
+          put(obj.key, v);
+        },
+
+        deleteProperty(obj, prop) {
+          if (prop !== 'value') return;
+          delete cache[obj.key];
+          del();
+        },
+      },
     );
+
+    return { err: null, proxy };
   }
 }
 
