@@ -2,7 +2,7 @@ const https = require('https');
 const { log: LOG, warn: WRN, error: ERR } = console;
 
 class EZKeyValSDK {
-  /**@type {Object.<string, any>}*/
+  /**@type {Object<string, any>}*/
   #cache = {};
 
   /**@type {string}*/
@@ -85,11 +85,11 @@ class EZKeyValSDK {
 
   /**
    * @param {string} key
-   * @returns {ErrorOrProxy}
+   * @returns {ErrorOr<SDKProxy>}
    */
   init(key) {
-    if (key === null) return { err: 'no key specified', proxy: null };
-    if (typeof key !== 'string' || !key || key.includes('?')) return { err: 'key is not a valid string', proxy: null };
+    if (key === null) return { err: 'no key specified', data: null };
+    if (typeof key !== 'string' || !key || key.includes('?')) return { err: 'key is not a valid string', data: null };
 
     this.#get(key);
 
@@ -126,10 +126,11 @@ class EZKeyValSDK {
 module.exports = { EZKeyValSDK };
 
 /**
- * @typedef {Object} ErrorOrProxy
- * @property {string?} err
- * @property {SDKProxy?} proxy
- *
+ * @typedef {{err: string?, data: T?}} ErrorOr<T>
+ * @template T
+ */
+
+/**
  * @typedef {Object} SDKProxy
  * @property {any} value
  */
