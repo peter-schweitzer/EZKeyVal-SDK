@@ -1,4 +1,3 @@
-const https = require('https');
 const { log: LOG, warn: WRN, error: ERR } = console;
 
 class EZKeyValSDK {
@@ -6,9 +5,9 @@ class EZKeyValSDK {
   #cache = {};
 
   /**@type {string}*/
-  #m_host = '';
+  #host;
   /**@type {string}*/
-  #m_uri = '';
+  #uri;
 
   /**
    * @param {string} host
@@ -17,8 +16,8 @@ class EZKeyValSDK {
    */
   constructor(host, uri, syncInterval = 0) {
     if (host === undefined) throw 'NO HOST GIVEN';
-    this.#m_host = host;
-    this.#m_uri = uri;
+    this.#host = host;
+    this.#uri = uri;
 
     if (!!syncInterval)
       setInterval(() => {
@@ -28,59 +27,44 @@ class EZKeyValSDK {
 
   /**
    * @param {string} key
-   * @returns {void}
    */
-  #get(key) {
-    https
-      .request({ host: this.#m_host, route: `${this.#m_uri}/${key}`, method: 'GET' }, (res) => {
-        let buff = '';
-
-        res.on('data', (d) => {
-          buff += d;
-        });
-
-        res.on('end', () => {
-          try {
-            this.#cache[key] = JSON.parse(buff);
-          } catch (e) {
-            ERR(e);
-          }
-        });
-      })
-      .on('error', (e) => {
-        ERR(e);
-      });
+  async #get(key) {
+    try {
+      this.#cache[key] = await (await fetch(`${this.#host}${this.#uri}/${key}`, { method: 'GET' })).json();
+    } catch (e) {
+      ERR(e);
+    }
   }
 
   /**
+   * @param {string} key
    * @param {any} value null => noop
    * @returns {void}
    */
-  #put(value = null) {
+  async #put(key, value = null) {
     if (value === null) return void LOG('no valid value specified');
     const data = JSON.stringify(value);
 
-    const req = https.request(
-      { host: this.#m_host, route: `${this.#m_uri}/${key}`, method: 'PUT', headers: { 'Content-Type': 'application/json', 'Content-Length': data.length } },
-      (res) => {
-        res.on('error', (e) => {
-          ERR(e);
-        });
-      },
-    );
-    req.write(data, ERR);
-    req.end();
+    try {
+      fetch(`${this.#host}${this.#uri}/${key}`, {
+        method: 'PUT',
+        headers: [
+          ['Content-Type', 'application/json'],
+          ['Content-Length', `${Buffer.byteLength(data)}`],
+        ],
+        body: data,
+      });
+    } catch (e) {
+      ERR(e);
+    }
   }
 
   #del(key) {
-    const options = { host: this.m_host, route: `${this.m_uri}/${key}`, method: 'DELETE' };
-    https
-      .request(options, (res) => {
-        LOG('DELETE response code:', res.statusCode);
-      })
-      .on('error', (e) => {
-        ERR(e);
-      });
+    try {
+      fetch(`${this.#host}${this.#uri}/${key}`, { method: 'DELETE' });
+    } catch (e) {
+      ERR(e);
+    }
   }
 
   /**
@@ -94,8 +78,12 @@ class EZKeyValSDK {
     this.#get(key);
 
     const cache = this.#cache;
-    const put = this.#put;
-    const del = this.#del;
+    const put = (key, val) => {
+      this.#put(key, val);
+    };
+    const del = (key) => {
+      this.#del(key);
+    };
 
     const proxy = new Proxy(
       { key },
@@ -114,37 +102,23 @@ class EZKeyValSDK {
         deleteProperty(obj, prop) {
           if (prop !== 'value') return;
           delete cache[obj.key];
-          del();
+          del(obj.key);
         },
       },
     );
 
-    return { err: null, proxy };
+    return { err: null, data: proxy };
   }
 
   /**
    * @returns {ErrorOr<string[]>}
    */
-  keys() {
-    https
-      .request({ host: this.#m_host, route: `/keys${this.#m_uri}`, method: 'GET' }, (res) => {
-        let buff = '';
-
-        res.on('data', (d) => {
-          buff += d;
-        });
-
-        res.on('end', () => {
-          try {
-            return { err: null, data: JSON.parse(buff) };
-          } catch (err) {
-            return { err, data: null };
-          }
-        });
-      })
-      .on('error', (err) => {
-        return { err, data: null };
-      });
+  async keys() {
+    try {
+      return { err: null, data: await (await fetch(`${this.#host}/keys`, { method: 'GET' })).json() };
+    } catch ({ name, message, stack }) {
+      return { err: `${name}:\n${message}\n\n${stack}`, data: null };
+    }
   }
 }
 
