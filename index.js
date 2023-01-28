@@ -71,11 +71,11 @@ class EZKeyValSDK {
    * @param {string} key
    * @returns {ErrorOr<SDKProxy>}
    */
-  init(key) {
+  init(key = null) {
     if (key === null) return { err: 'no key specified', data: null };
     if (typeof key !== 'string' || !key || key.includes('?')) return { err: 'key is not a valid string', data: null };
 
-    this.#get(key);
+    if (!this.#cache.hasOwnProperty(key)) this.#get(key);
 
     const cache = this.#cache;
     const put = (key, val) => {
