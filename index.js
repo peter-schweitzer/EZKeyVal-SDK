@@ -48,10 +48,7 @@ class EZKeyValSDK {
     try {
       await fetch(`${this.#host}${this.#uri}/${key}`, {
         method: 'PUT',
-        headers: [
-          ['Content-Type', 'application/json'],
-          ['Content-Length', `${Buffer.byteLength(data)}`],
-        ],
+        headers: { 'Content-Type': 'application/json', 'Content-Length': `${Buffer.byteLength(data)}` },
         body: data,
       });
     } catch (e) {
