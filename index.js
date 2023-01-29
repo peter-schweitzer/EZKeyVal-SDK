@@ -46,7 +46,7 @@ class EZKeyValSDK {
     const data = JSON.stringify(value);
 
     try {
-      fetch(`${this.#host}${this.#uri}/${key}`, {
+      await fetch(`${this.#host}${this.#uri}/${key}`, {
         method: 'PUT',
         headers: [
           ['Content-Type', 'application/json'],
@@ -71,11 +71,11 @@ class EZKeyValSDK {
    * @param {string} key
    * @returns {ErrorOr<SDKProxy>}
    */
-  init(key = null) {
+  async init(key = null) {
     if (key === null) return { err: 'no key specified', data: null };
     if (typeof key !== 'string' || !key || key.includes('?')) return { err: 'key is not a valid string', data: null };
 
-    if (!this.#cache.hasOwnProperty(key)) this.#get(key);
+    if (!this.#cache.hasOwnProperty(key)) await this.#get(key);
 
     const cache = this.#cache;
     const put = (key, val) => {
