@@ -29,10 +29,11 @@ class EZKeyValSDK {
    * @param {string} key
    */
   async #get(key) {
+    const res = await fetch(`${this.#host}${this.#uri}/${key}`, { method: 'GET' });
     try {
-      this.#cache[key] = await (await fetch(`${this.#host}${this.#uri}/${key}`, { method: 'GET' })).json();
+      this.#cache[key] = await res.json();
     } catch (e) {
-      ERR(e);
+      if (res.status !== 200) ERR(e);
     }
   }
 
