@@ -71,20 +71,22 @@ class EZKeyValSDK {
    */
   async init(key = null) {
     if (key === null) return { err: 'no key specified', data: null };
-    if (typeof key !== 'string' || !key || key.includes('?')) return { err: 'key is not a valid string', data: null };
+    if (typeof key !== 'string' || !key) return { err: 'key is not a valid string', data: null };
 
-    if (!this.#cache.hasOwnProperty(key)) await this.#get(key);
+    const encoded_key = encodeURIComponent(key);
+
+    if (!this.#cache.hasOwnProperty(encoded_key)) await this.#get(encoded_key);
 
     const cache = this.#cache;
-    const put = (key, val) => {
-      this.#put(key, val);
+    const put = (k, v) => {
+      this.#put(k, v);
     };
-    const del = (key) => {
-      this.#del(key);
+    const del = (k) => {
+      this.#del(k);
     };
 
     const proxy = new Proxy(
-      { key },
+      { key: encoded_key },
       {
         get(obj, prop) {
           if (prop !== 'value') return undefined;
